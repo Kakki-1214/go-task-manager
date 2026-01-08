@@ -1,0 +1,31 @@
+# --- 1. ビルド用ステージ (コンパイルを行う場所) ---
+    FROM golang:1.25-alpine AS builder
+
+    WORKDIR /app
+    
+    # 依存関係のダウンロード
+    COPY go.mod go.sum ./
+    RUN go mod download
+    
+    # ソースコードをコピーしてビルド
+    COPY . .
+    # 実行ファイル "main" を作成 (-w -s は軽量化オプション)
+    RUN go build -w -s -o main .
+    
+    # --- 2. 実行用ステージ (本番で動く場所) ---
+    FROM alpine:latest
+    
+    WORKDIR /app
+    
+    # HTTPS通信に必要な証明書を入れる (Aiven接続に必須)
+    RUN apk --no-cache add ca-certificates
+    
+    # ビルド用ステージから、完成した実行ファイルだけを持ってくる
+    COPY --from=builder /app/main .
+    
+    # ポート指定 (Renderは10000番などを割り当てる)
+    ENV PORT=10000
+    EXPOSE 10000
+    
+    # 実行
+    CMD ["./main"]
