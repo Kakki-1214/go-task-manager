@@ -127,5 +127,11 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
 	})
 
-	r.Run(":8080")
+	// r.Run(":8080")
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // ローカル開発用
+	}
+	r.Run(":" + port)
 }
