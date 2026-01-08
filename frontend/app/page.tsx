@@ -12,6 +12,7 @@ type Task = {
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   // 1. マウント時にタスク一覧を取得
   useEffect(() => {
@@ -20,7 +21,7 @@ export default function Home() {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch("http://localhost:8080/tasks");
+      const res = await fetch(`${API_URL}/tasks`);
       const data = await res.json();
       setTasks(data || []); // nullの場合は空配列にする
     } catch (err) {
@@ -32,7 +33,7 @@ export default function Home() {
   const addTask = async () => {
     if (!newTaskTitle) return;
     try {
-      await fetch("http://localhost:8080/tasks", {
+      await fetch(`${API_URL}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTaskTitle, status: "pending" }),
@@ -47,7 +48,7 @@ export default function Home() {
   // 3. タスク削除処理
   const deleteTask = async (id: number) => {
     try {
-      await fetch(`http://localhost:8080/tasks/${id}`, {
+      await fetch(`${API_URL}/tasks/${id}`, {
         method: "DELETE",
       });
       fetchTasks(); // リストを再取得
