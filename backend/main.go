@@ -13,15 +13,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// --- 1. モデル定義 (DBの設計図) ---
+// --- モデル定義 ---
 type Task struct {
-	gorm.Model        // ID, CreatedAt, UpdatedAtなどを自動管理
-	Title      string `json:"title" binding:"required"` // 必須入力
-	Status     string `json:"status"`                   // "pending", "done" など
+	gorm.Model
+	Title  string `json:"title" binding:"required"`
+	Status string `json:"status"`
 }
 
 func main() {
-	// --- 2. DB接続設定 ---
+	// --- DB接続設定 ---
+	// Render等の環境変数(DB_DSN)があればそれを優先、なければローカル用を作成
 	dsn := os.Getenv("DB_DSN")
 	if dsn == "" {
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
@@ -52,29 +53,27 @@ func main() {
 		time.Sleep(3 * time.Second)
 	}
 
-	// --- 3. マイグレーション (テーブル自動生成) ---
-	// Task構造体を見て、自動的にDBにテーブルを作ってくれる魔法の機能
+	// マイグレーション
 	db.AutoMigrate(&Task{})
 
 	r := gin.Default()
 
+	// --- CORS設定 ---
+	// Vercel等のフロントエンドからのアクセスを許可
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000"}
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE"}
-	config.AllowHeaders = []string{"Content-Type"}
+	// 全許可（開発・デモ用としてはこれでOK）
+	config.AllowAllOrigins = true
+	// もし厳密にやるなら以下のように指定
+	// config.AllowOrigins = []string{"http://localhost:3000", "https://task-front.vercel.app"}
 	r.Use(cors.New(config))
 
-	// --- 4. ルーティングと処理 (APIの実装) ---
-
-	// [POST] タスク作成
+	// --- API実装 ---
 	r.POST("/tasks", func(c *gin.Context) {
 		var newTask Task
-		// JSONを受け取って構造体にマッピング
 		if err := c.ShouldBindJSON(&newTask); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		// DBに保存
 		result := db.Create(&newTask)
 		if result.Error != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
@@ -83,14 +82,12 @@ func main() {
 		c.JSON(http.StatusCreated, newTask)
 	})
 
-	// [GET] タスク全取得
 	r.GET("/tasks", func(c *gin.Context) {
 		var tasks []Task
 		db.Find(&tasks)
 		c.JSON(http.StatusOK, tasks)
 	})
 
-	// [GET] タスク詳細取得
 	r.GET("/tasks/:id", func(c *gin.Context) {
 		var task Task
 		if err := db.First(&task, c.Param("id")).Error; err != nil {
@@ -100,26 +97,21 @@ func main() {
 		c.JSON(http.StatusOK, task)
 	})
 
-	// [PUT] タスク更新
 	r.PUT("/tasks/:id", func(c *gin.Context) {
 		var task Task
-		// まず存在確認
 		if err := db.First(&task, c.Param("id")).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
 			return
 		}
-		// 新しいデータを読み込み
 		var updateData Task
 		if err := c.ShouldBindJSON(&updateData); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		// 更新実行
 		db.Model(&task).Updates(updateData)
 		c.JSON(http.StatusOK, task)
 	})
 
-	// [DELETE] タスク削除
 	r.DELETE("/tasks/:id", func(c *gin.Context) {
 		var task Task
 		if err := db.First(&task, c.Param("id")).Error; err != nil {
@@ -130,11 +122,10 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
 	})
 
-	// r.Run(":8080")
-
+	// --- ポート設定 (Render対応) ---
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080" // ローカル開発用
+		port = "8080"
 	}
 	r.Run(":" + port)
 }
