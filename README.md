@@ -80,4 +80,41 @@ VSCodeのターミナルで、変更をGitHubにプッシュします。
 ```powershell
 git add README.md
 git commit -m "Add documentation"
+
 git push
+
+# Go & Next.js Task Manager
+
+A full-stack task management application built with Go (Gin) and Next.js, deployed on cloud infrastructure.
+
+## 🚀 Features
+
+- **User Authentication:** Secure JWT-based signup and login system.
+- **Task Management:** Create, read, and delete tasks.
+- **Data Isolation:** Users can only access their own tasks.
+- **Responsive UI:** Built with Tailwind CSS.
+
+## 🛠 Tech Stack
+
+| Category | Technology |
+| --- | --- |
+| **Frontend** | Next.js (TypeScript), Tailwind CSS |
+| **Backend** | Go (Gin Framework) |
+| **Database** | MySQL (Aiven Cloud) |
+| **Infra** | Docker, Render, Vercel |
+
+## 🏗 Architecture
+
+- **Frontend:** Hosted on Vercel. Consumes REST API.
+- **Backend:** Containerized Go application hosted on Render.
+- **Database:** Managed MySQL on Aiven.
+
+## 🔒 Security
+
+- Passwords are hashed using **bcrypt** before storage.
+- API endpoints are protected using custom **JWT middleware**.
+- **CORS** policies configured for secure cross-origin requests.
+
+## 👨‍💻 Author
+
+Keigo Kakizawa (Japan Institute of Technology)
