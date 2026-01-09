@@ -20,7 +20,7 @@ import (
 // User モデル: ユーザー情報
 type User struct {
 	gorm.Model
-	Email    string `gorm:"uniqueIndex;not null" json:"email" binding:"required,email"`
+	Email    string `gorm:"size:191;uniqueIndex;not null" json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"` // DBにはハッシュ化して保存
 }
 
@@ -73,7 +73,10 @@ func main() {
 	}
 
 	// マイグレーション（Userテーブル作成、Taskテーブル更新）
-	db.AutoMigrate(&User{}, &Task{})
+	// db.AutoMigrate(&User{}, &Task{})
+	if err := db.AutoMigrate(&User{}, &Task{}); err != nil {
+		log.Fatal("テーブル作成に失敗しました: ", err)
+	}
 
 	r := gin.Default()
 
