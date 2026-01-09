@@ -1,104 +1,145 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-// タスクの型定義（Goの構造体と合わせる）
-type Task = {
+interface Task {
   ID: number;
   title: string;
   status: string;
-};
+}
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const [newTask, setNewTask] = useState('');
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  // 1. マウント時にタスク一覧を取得
+  // 環境変数からAPIのURLを取得
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
   useEffect(() => {
+    // 1. トークンチェック（なければログイン画面へ強制送還）
+    const token = localStorage.getItem('token');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
     fetchTasks();
-  }, []);
+  }, [router]);
 
+  // 認証付きでタスクを取得する関数
   const fetchTasks = async () => {
+    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`${API_URL}/tasks`);
+      const res = await fetch(`${apiUrl}/tasks`, {
+        headers: {
+          'Authorization': `Bearer ${token}` // 【重要】ここに鍵を載せる
+        }
+      });
+
+      if (res.status === 401) {
+        // トークンが期限切れならログアウトさせる
+        handleLogout();
+        return;
+      }
+
       const data = await res.json();
-      setTasks(data || []); // nullの場合は空配列にする
-    } catch (err) {
-      console.error("Fetch error:", err);
+      setTasks(data);
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 2. タスク追加処理
   const addTask = async () => {
-    if (!newTaskTitle) return;
-    try {
-      await fetch(`${API_URL}/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newTaskTitle, status: "pending" }),
-      });
-      setNewTaskTitle(""); // 入力欄をクリア
-      fetchTasks(); // リストを再取得
-    } catch (err) {
-      console.error("Add error:", err);
-    }
+    if (!newTask) return;
+    const token = localStorage.getItem('token');
+
+    await fetch(`${apiUrl}/tasks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // 【重要】ここにも鍵を載せる
+      },
+      body: JSON.stringify({ title: newTask, status: 'Pending' }),
+    });
+    setNewTask('');
+    fetchTasks();
   };
 
-  // 3. タスク削除処理
   const deleteTask = async (id: number) => {
-    try {
-      await fetch(`${API_URL}/tasks/${id}`, {
-        method: "DELETE",
-      });
-      fetchTasks(); // リストを再取得
-    } catch (err) {
-      console.error("Delete error:", err);
-    }
+    const token = localStorage.getItem('token');
+    await fetch(`${apiUrl}/tasks/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}` // 【重要】ここにも
+      }
+    });
+    fetchTasks();
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token'); // 鍵を捨てる
+    router.push('/login'); // ログイン画面へ戻る
+  };
+
+  // ロード中は何も表示しない（チラつき防止）
+  if (loading) return <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-bold mb-6 text-gray-800">タスク管理アプリ</h1>
+    <div className="min-h-screen bg-gray-900 text-white font-sans">
+      <div className="max-w-xl mx-auto p-8">
+        <header className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            My Tasks
+          </h1>
+          <button 
+            onClick={handleLogout}
+            className="text-sm text-gray-400 hover:text-white border border-gray-600 px-3 py-1 rounded"
+          >
+            Logout
+          </button>
+        </header>
 
-        {/* 入力フォーム */}
         <div className="flex gap-2 mb-8">
           <input
             type="text"
-            className="flex-1 border border-gray-300 rounded px-4 py-2 text-gray-800 focus:outline-none focus:border-blue-500"
-            placeholder="新しいタスクを入力..."
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
+            className="flex-1 p-3 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:border-blue-500 transition"
+            placeholder="What needs to be done?"
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addTask()}
           />
           <button
             onClick={addTask}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded transition"
+            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-bold transition shadow-lg hover:shadow-blue-500/20"
           >
-            追加
+            Add
           </button>
         </div>
 
-        {/* タスクリスト */}
         <ul className="space-y-3">
           {tasks.map((task) => (
             <li
               key={task.ID}
-              className="flex items-center justify-between p-4 bg-gray-50 border rounded hover:bg-gray-100 transition"
+              className="flex justify-between items-center bg-gray-800 p-4 rounded-lg shadow border border-gray-700 hover:border-gray-600 transition group"
             >
-              <span className="text-gray-700">{task.title}</span>
+              <span className="text-lg">{task.title}</span>
               <button
                 onClick={() => deleteTask(task.ID)}
-                className="text-red-500 hover:text-red-700 text-sm font-semibold"
+                className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
               >
-                削除
+                Delete
               </button>
             </li>
           ))}
-          {tasks.length === 0 && (
-            <p className="text-center text-gray-400 py-4">タスクがありません</p>
-          )}
         </ul>
+        
+        {tasks.length === 0 && (
+          <p className="text-center text-gray-500 mt-10">No tasks yet. Add one above!</p>
+        )}
       </div>
     </div>
   );
